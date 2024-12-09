@@ -1,10 +1,12 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Hero from './sections/Hero';
 import Projects from './sections/Projects';
 import Skills from './sections/Skills';
 import Contact from './sections/Contact';
 import Footer from './sections/Footer';
+import Terminal from './Terminal';
+import TerminalButton from './TerminalButton';
 
 export default function FluidSimulation() {
   const canvasRef = useRef(null);
@@ -13,16 +15,65 @@ export default function FluidSimulation() {
   const lastMousePos = useRef({ x: null, y: null });
   const colorPulse = useRef(0);
   const waveRef = useRef({ x: 0, y: 0, radius: 0, active: false });
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [particleColors, setParticleColors] = useState({
+    r: 74,
+    g: 144,
+    b: 226,
+    mode: 'normal'
+  });
+
+  const handleColorChange = (r, g, b, preserveColor = false) => {
+    if (r === -1 && g === -1 && b === -1) {
+      // Rainbow - keep normal mode but set a flag for rainbow colors
+      setParticleColors(prev => ({
+        ...prev,
+        mode: 'normal',
+        effect: 'rainbow'
+      }));
+    } else if (r === -2 && g === -2 && b === -2) {
+      // Neon - keep normal mode but set a flag for neon effect
+      setParticleColors(prev => ({
+        ...prev,
+        mode: 'normal',
+        effect: 'neon'
+      }));
+    } else if (r === -3 && g === -3 && b === -3) {
+      // Fire - keep normal mode but set a flag for fire colors
+      setParticleColors(prev => ({
+        ...prev,
+        mode: 'normal',
+        effect: 'fire'
+      }));
+    } else if (r === -4 && g === -4 && b === -4) {
+      // Disco - keep normal mode but set a flag for disco colors
+      setParticleColors(prev => ({
+        ...prev,
+        mode: 'normal',
+        effect: 'disco'
+      }));
+    } else if (r === -10 && g === -10 && b === -10) {
+      setParticleColors(prev => ({ ...prev, mode: 'vortex', effect: 'none' }));
+    } else if (r === -30 && g === -30 && b === -30) {
+      setParticleColors(prev => ({ ...prev, mode: 'gravity', effect: 'none' }));
+    } else if (r === -40 && g === -40 && b === -40) {
+      setParticleColors(prev => ({ ...prev, mode: 'chaos', effect: 'none' }));
+    } else {
+      // Direct color change - normal mode with no special effect
+      setParticleColors({
+        r: r,
+        g: g,
+        b: b,
+        mode: 'normal',
+        effect: 'none'
+      });
+    }
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { alpha: false });
     let animationFrameId;
-
-    // Pre-calculate values
-    const TWO_PI = Math.PI * 2;
-    const CONNECTION_DISTANCE_SQ = 200 * 200;
-    const MOUSE_INFLUENCE_DISTANCE_SQ = 200 * 200;
 
     const setCanvasSize = () => {
       canvas.width = window.innerWidth;
@@ -61,220 +112,115 @@ export default function FluidSimulation() {
       lastMousePos.current = { x: null, y: null };
     };
 
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('mouseleave', handleMouseLeave, { passive: true });
-    window.addEventListener('resize', setCanvasSize, { passive: true });
-
-    setCanvasSize();
-
-    // Add pulse wave function
-    const triggerPulseWave = (x, y) => {
-      waveRef.current = {
-        x,
-        y,
-        radius: 0,
-        active: true,
-        startTime: Date.now()
-      };
-    };
-
-    // Add double click handler for pulse wave
-    const handleDoubleClick = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      triggerPulseWave(
-        e.clientX - rect.left,
-        e.clientY - rect.top
-      );
-    };
-
-    canvas.addEventListener('dblclick', handleDoubleClick);
-
     const animate = () => {
-      // Update color pulse
-      colorPulse.current = (colorPulse.current + 0.005) % TWO_PI;
-      const colorFactor = Math.sin(colorPulse.current) * 0.2 + 0.8;
+      colorPulse.current = (colorPulse.current + 0.005) % 1;
+      const colorFactor = Math.sin(colorPulse.current * Math.PI * 2) * 0.5 + 0.5;
 
-      // Clear with trail effect
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Update pulse wave
-      if (waveRef.current.active) {
-        const elapsed = Date.now() - waveRef.current.startTime;
-        const duration = 2000; // 2 seconds for the wave to complete
-        const progress = elapsed / duration;
-
-        if (progress < 1) {
-          waveRef.current.radius = Math.min(
-            Math.max(canvas.width, canvas.height),
-            progress * 1000
-          );
+      // Update and draw particles
+      for (const particle of particles.current) {
+        // Handle color effects while maintaining normal behavior
+        if (particleColors.effect === 'rainbow') {
+          const hue = (colorPulse.current * 360 + particle.x * 0.1) % 360;
+          const [r, g, b] = hslToRgb(hue / 360, 0.7, 0.5);
+          particle.color = { r, g, b };
+        } else if (particleColors.effect === 'neon') {
+          const brightness = Math.sin(colorPulse.current * Math.PI * 2) * 0.3 + 0.7;
+          particle.color = {
+            r: particleColors.r * brightness,
+            g: particleColors.g * brightness,
+            b: particleColors.b * brightness
+          };
+        } else if (particleColors.effect === 'fire') {
+          const flicker = Math.random() * 0.3 + 0.7;
+          particle.color = {
+            r: 255 * flicker,
+            g: (100 + Math.random() * 50) * flicker,
+            b: 0
+          };
+        } else if (particleColors.effect === 'disco') {
+          if (Math.random() < 0.05) {
+            const hue = Math.random();
+            const [r, g, b] = hslToRgb(hue, 1, 0.5);
+            particle.color = { r, g, b };
+          }
         } else {
-          waveRef.current.active = false;
+          particle.color = null; // Use default colors
         }
-      }
 
-      // Get hero section elements for repulsion
-      const heroSection = document.querySelector('section');
-      const heroElements = heroSection ? [
-        ...Array.from(heroSection.getElementsByTagName('h1')),
-        ...Array.from(heroSection.getElementsByTagName('p')),
-        ...Array.from(heroSection.getElementsByTagName('button'))
-      ] : [];
-
-      // Calculate repulsion zones
-      const repulsionZones = heroElements.map(element => {
-        const rect = element.getBoundingClientRect();
-        return {
-          left: rect.left - 30,
-          right: rect.right + 30,
-          top: rect.top - 30,
-          bottom: rect.bottom + 30,
-          centerX: rect.left + rect.width / 2,
-          centerY: rect.top + rect.height / 2,
-          width: rect.width,
-          height: rect.height
-        };
-      });
-
-      // Draw all connections
-      const allParticles = particles.current;
-      const len = allParticles.length;
-
-      // Base color values
-      const baseR = 74;
-      const baseG = 144;
-      const baseB = 226;
-
-      for (let i = 0; i < len; i++) {
-        const particle = allParticles[i];
-        let connections = 0;
-
-        // Apply wave effect if active
-        if (waveRef.current.active) {
-          const dx = particle.x - waveRef.current.x;
-          const dy = particle.y - waveRef.current.y;
-          const distToWave = Math.sqrt(dx * dx + dy * dy);
-          const waveEffect = Math.abs(distToWave - waveRef.current.radius);
-
-          if (waveEffect < 50) {
-            const force = (1 - waveEffect / 50) * 2;
+        // Handle particle behavior based on mode
+        if (particleColors.mode === 'vortex' && mousePos.current.x !== null) {
+          const dx = mousePos.current.x - particle.x;
+          const dy = mousePos.current.y - particle.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 400) {
             const angle = Math.atan2(dy, dx);
+            // Stronger force when closer to center
+            const force = 2 * Math.pow(1 - dist/400, 2);  // Quadratic falloff for stronger center pull
+            const tangentialForce = force * 2;  // Increased for faster spinning
+            // Add inward pull that gets stronger closer to center
+            const pullStrength = 1 * (1 - dist/400);
+            particle.vx += (Math.cos(angle + Math.PI/2) * tangentialForce + dx * pullStrength) * (1 - dist/400);
+            particle.vy += (Math.sin(angle + Math.PI/2) * tangentialForce + dy * pullStrength) * (1 - dist/400);
+          }
+        } else if (particleColors.mode === 'gravity') {
+          if (mousePos.current.x !== null) {
+            const dx = mousePos.current.x - particle.x;
+            const dy = mousePos.current.y - particle.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = 300 / dist;
+            particle.vx += (dx / dist) * force * 0.15;
+            particle.vy += (dy / dist) * force * 0.15;
+          }
+          particle.vy += 0.2;
+        } else if (particleColors.mode === 'chaos') {
+          particle.vx += (Math.random() - 0.5) * 2;
+          particle.vy += (Math.random() - 0.5) * 2;
+          if (Math.random() < 0.01) {
+            const angle = Math.random() * Math.PI * 2;
+            const force = Math.random() * 10;
             particle.vx += Math.cos(angle) * force;
             particle.vy += Math.sin(angle) * force;
-
-            // Add extra glow to particles in wave
-            ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size * 2, 0, TWO_PI);
-            ctx.fillStyle = `rgba(74, 144, 226, ${0.2 * (1 - waveEffect / 50)})`;
-            ctx.fill();
           }
-        }
-
-        // Check repulsion for each zone
-        for (const zone of repulsionZones) {
-          const px = particle.x;
-          const py = particle.y;
-
-          if (px >= zone.left && px <= zone.right &&
-              py >= zone.top && py <= zone.bottom) {
-            const dx = px - zone.centerX;
-            const dy = py - zone.centerY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            // Calculate repulsion strength based on distance from center
-            const maxDimension = Math.max(zone.width, zone.height);
-            const normalizedDistance = distance / maxDimension;
-            const repulsionStrength = Math.min(2, 1.5 * (1 - normalizedDistance));
-
-            // Apply repulsion with normalized direction
-            const normalizedDx = dx / (distance || 1);
-            const normalizedDy = dy / (distance || 1);
-
-            // Apply capped velocity changes
-            const maxVelocityChange = 1.5;
-            const vx = normalizedDx * repulsionStrength;
-            const vy = normalizedDy * repulsionStrength;
-
-            particle.vx += Math.max(-maxVelocityChange, Math.min(maxVelocityChange, vx));
-            particle.vy += Math.max(-maxVelocityChange, Math.min(maxVelocityChange, vy));
-
-            // Add minimal turbulence
-            particle.vx += (Math.random() - 0.5) * 0.1;
-            particle.vy += (Math.random() - 0.5) * 0.1;
-          }
-        }
-
-        // Draw connections
-        for (let j = i + 1; j < len && connections < 5; j++) {
-          const other = allParticles[j];
-          const dx = other.x - particle.x;
-          const dy = other.y - particle.y;
-          const distSq = dx * dx + dy * dy;
-
-          if (distSq < CONNECTION_DISTANCE_SQ) {
-            connections++;
-            const dist = Math.sqrt(distSq);
-
-            // Calculate pulsing color
-            const r = Math.floor(baseR * colorFactor);
-            const g = Math.floor(baseG * colorFactor);
-            const b = Math.floor(baseB * colorFactor);
-
-            const alpha = (1 - dist / 200) * 0.7;
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-            const lineWidth = Math.max(0.4, (1 - dist / 200) * 1.5);
-            ctx.lineWidth = lineWidth;
-
-            ctx.beginPath();
-            ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(other.x, other.y);
-            ctx.stroke();
-
-            // Add elastic force with capped strength
-            const elasticForce = Math.min(0.0003, (dist - 150) * 0.0003);
-            const dirX = dx / dist;
-            const dirY = dy / dist;
-
-            const maxElasticChange = 0.5;
-            const elasticVx = dirX * elasticForce;
-            const elasticVy = dirY * elasticForce;
-
-            particle.vx += Math.max(-maxElasticChange, Math.min(maxElasticChange, elasticVx));
-            particle.vy += Math.max(-maxElasticChange, Math.min(maxElasticChange, elasticVy));
-            other.vx -= Math.max(-maxElasticChange, Math.min(maxElasticChange, elasticVx));
-            other.vy -= Math.max(-maxElasticChange, Math.min(maxElasticChange, elasticVy));
-          }
-        }
-
-        // Update particle position with velocity capping
-        if (mousePos.current.x !== null) {
+        } else if (mousePos.current.x !== null) {
+          // Normal mouse repulsion - only in normal mode
           const dx = mousePos.current.x - particle.x;
           const dy = mousePos.current.y - particle.y;
           const distSq = dx * dx + dy * dy;
-
-          if (distSq < MOUSE_INFLUENCE_DISTANCE_SQ) {
+          if (distSq < 40000) {
             const dist = Math.sqrt(distSq);
             const force = (200 - dist) / 200;
-            const maxMouseForce = 1;
-            particle.vx -= Math.max(-maxMouseForce, Math.min(maxMouseForce, (dx / dist) * force));
-            particle.vy -= Math.max(-maxMouseForce, Math.min(maxMouseForce, (dy / dist) * force));
+            const maxForce = 1;
+            particle.vx -= Math.max(-maxForce, Math.min(maxForce, (dx / dist) * force));
+            particle.vy -= Math.max(-maxForce, Math.min(maxForce, (dy / dist) * force));
           }
         }
 
-        // Natural movement with reduced randomness
-        particle.vx += (Math.random() - 0.5) * 0.05;
-        particle.vy += (Math.random() - 0.5) * 0.05;
+        // Natural movement for all modes
+        const randomForce = particleColors.mode === 'chaos' ? 0.5 : 0.05;
+        particle.vx += (Math.random() - 0.5) * randomForce;
+        particle.vy += (Math.random() - 0.5) * randomForce;
 
-        // Return to base with gentle force
+        // Return force
+        const returnStrength =
+          particleColors.mode === 'gravity' ? 0.01 :
+          particleColors.mode === 'chaos' ? 0.001 :
+          0.05;
+
         const dx = particle.baseX - particle.x;
         const dy = particle.baseY - particle.y;
-        particle.vx += dx * 0.01;
-        particle.vy += dy * 0.01;
+        particle.vx += dx * returnStrength;
+        particle.vy += dy * returnStrength;
 
-        // Apply velocity with maximum speed limit
-        const maxSpeed = 3;
+        // Speed limits
+        const maxSpeed =
+          particleColors.mode === 'chaos' ? 15 :
+          particleColors.mode === 'gravity' ? 10 :
+          particleColors.mode === 'vortex' ? 15 :  // Increased max speed for vortex
+          3;
+
         const currentSpeed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
         if (currentSpeed > maxSpeed) {
           const scale = maxSpeed / currentSpeed;
@@ -282,58 +228,96 @@ export default function FluidSimulation() {
           particle.vy *= scale;
         }
 
+        // Update position
         particle.x += particle.vx;
         particle.y += particle.vy;
 
-        // Increased friction for more stability
-        particle.vx *= 0.92;
-        particle.vy *= 0.92;
+        // Apply friction
+        const friction =
+          particleColors.mode === 'gravity' ? 0.98 :
+          particleColors.mode === 'chaos' ? 0.95 :
+          particleColors.mode === 'vortex' ? 0.99 :  // Higher value means less friction
+          0.92;
 
-        // Boundary checking
-        if (particle.x < 0) { particle.x = 0; particle.vx *= -0.5; }
-        else if (particle.x > canvas.width) { particle.x = canvas.width; particle.vx *= -0.5; }
-        if (particle.y < 0) { particle.y = 0; particle.vy *= -0.5; }
-        else if (particle.y > canvas.height) { particle.y = canvas.height; particle.vy *= -0.5; }
+        particle.vx *= friction;
+        particle.vy *= friction;
 
-        // Draw particle with wave-affected color
-        let particleR = Math.floor(baseR * colorFactor);
-        let particleG = Math.floor(baseG * colorFactor);
-        let particleB = Math.floor(baseB * colorFactor);
+        // Draw connections
+        let connections = 0;
+        for (const other of particles.current) {
+          if (other === particle || connections >= 5) continue;
+          const dx = other.x - particle.x;
+          const dy = other.y - particle.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < 40000) {
+            connections++;
+            const dist = Math.sqrt(distSq);
+            const alpha = (1 - dist / 200) * 0.5;
 
-        // Enhance particle color if in wave
-        if (waveRef.current.active) {
-          const dx = particle.x - waveRef.current.x;
-          const dy = particle.y - waveRef.current.y;
-          const distToWave = Math.sqrt(dx * dx + dy * dy);
-          const waveEffect = Math.abs(distToWave - waveRef.current.radius);
-
-          if (waveEffect < 50) {
-            const intensity = 1 - waveEffect / 50;
-            particleR = Math.min(255, particleR + Math.floor(100 * intensity));
-            particleG = Math.min(255, particleG + Math.floor(100 * intensity));
-            particleB = Math.min(255, particleB + Math.floor(50 * intensity));
+            const color = particle.color || particleColors;
+            ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+            ctx.lineWidth = Math.max(0.2, (1 - dist / 200));
+            ctx.beginPath();
+            ctx.moveTo(particle.x, particle.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
           }
         }
 
-        ctx.fillStyle = `rgb(${particleR}, ${particleG}, ${particleB})`;
+        // Draw particle
+        const baseSize = 2;
+        let particleSize = baseSize;
+
+        const color = particle.color || particleColors;
+        ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, TWO_PI);
+        ctx.arc(particle.x, particle.y, particleSize, 0, Math.PI * 2);
         ctx.fill();
       }
 
       animationFrameId = requestAnimationFrame(animate);
     };
 
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('resize', setCanvasSize);
+
+    setCanvasSize();
     animate();
 
     return () => {
-      window.removeEventListener('resize', setCanvasSize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
-      canvas.removeEventListener('dblclick', handleDoubleClick);
+      window.removeEventListener('resize', setCanvasSize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [particleColors]);
+
+  // Helper function for rainbow mode
+  const hslToRgb = (h, s, l) => {
+    let r, g, b;
+
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  };
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
@@ -342,6 +326,12 @@ export default function FluidSimulation() {
         className="fixed top-0 left-0 w-full h-full bg-black"
       />
       <div className="relative z-10">
+        <Terminal
+          isOpen={isTerminalOpen}
+          setIsOpen={setIsTerminalOpen}
+          onColorChange={handleColorChange}
+        />
+        <TerminalButton onClick={() => setIsTerminalOpen(true)} />
         <Hero />
         <Projects />
         <Skills />

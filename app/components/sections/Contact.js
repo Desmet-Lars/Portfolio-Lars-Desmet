@@ -18,18 +18,21 @@ export default function Contact() {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await fetch('/api/send-email/route', {
+      // Create FormData object
+      const form = new FormData();
+      form.append('name', formData.name);
+      form.append('email', formData.email);
+      form.append('message', formData.message);
+
+      const response = await fetch('/api/send-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+        body: form
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setStatus({ type: 'success', message: 'Message sent successfully!' });
+        setStatus({ type: 'success', message: data.message });
         setFormData({ name: '', email: '', message: '' });
       } else {
         setStatus({ type: 'error', message: data.error || 'Failed to send message. Please try again.' });

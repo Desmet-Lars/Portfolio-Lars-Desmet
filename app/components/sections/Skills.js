@@ -21,7 +21,7 @@ export default function Skills() {
   ];
 
   return (
-    <section className="min-h-screen py-24 px-4 md:px-8 lg:px-16 bg-gradient-to-b from-black/40 via-black/20 to-black/40">
+    <section id="skills" className="min-h-screen py-24 px-4 md:px-8 lg:px-16 bg-gradient-to-b from-black/40 via-black/20 to-black/40">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
