@@ -30,7 +30,7 @@ A modern Next.js web application built with React and Tailwind CSS.
 1. **Clone the repository**
 
 ```bash
-git clone [your-repo-url]
+git clone https://github.com/Desmet-Lars/Portfolio-Lars-Desmet.git
 cd fluid
 ```
 
