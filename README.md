@@ -84,6 +84,3 @@ The project uses several configuration files:
 - `postcss.config.mjs` - PostCSS configuration
 - `jsconfig.json` - JavaScript configuration
 
-## 📄 License
-
-[Add your license information here]
