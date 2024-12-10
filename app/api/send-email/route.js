@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import rateLimit from 'express-rate-limit';
 import { v4 as uuidv4 } from 'uuid';
 
 // Spam keywords to check against
@@ -21,18 +20,6 @@ const profanityList = [
   // Add more as needed
 ];
 
-// Allowed file types for attachments
-const allowedFileTypes = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-];
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
 // Check for spam content
 const isSpam = (content) => {
   const lowerContent = content.toLowerCase();
@@ -45,14 +32,7 @@ const containsProfanity = (content) => {
   return profanityList.some(word => lowerContent.includes(word.toLowerCase()));
 };
 
-// Rate limiting setup - 3 emails per hour per IP
-const limiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 6,
-  message: 'Too many emails sent from this IP, please try again in an hour',
-});
-
-// HTML email template with tracking pixel
+// HTML email template
 const createEmailHTML = (name, email, message, trackingId) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <h2 style="color: #333;">New Portfolio Contact</h2>
@@ -63,7 +43,6 @@ const createEmailHTML = (name, email, message, trackingId) => `
       <h3>Message:</h3>
       <p style="white-space: pre-wrap;">${message}</p>
     </div>
-    <img src="/api/track-email?id=${trackingId}" alt="" style="width:1px;height:1px;" />
   </div>
 `;
 
@@ -81,22 +60,8 @@ const createAutoResponseHTML = (name, trackingId) => `
 
 export async function POST(req) {
   try {
-    // Apply rate limiting
-    const clientIP = req.headers.get('x-forwarded-for') || req.ip;
-    try {
-      await limiter.check(req, clientIP);
-    } catch {
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
-      );
-    }
-
-    const formData = await req.formData();
-    const name = formData.get('name');
-    const email = formData.get('email');
-    const message = formData.get('message');
-    const attachment = formData.get('attachment');
+    const data = await req.json();
+    const { name, email, message } = data;
 
     // Validate inputs
     if (!name || !email || !message) {
@@ -134,31 +99,6 @@ export async function POST(req) {
       );
     }
 
-    // Handle attachment if present
-    let attachments = [];
-    if (attachment) {
-      if (attachment.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: 'File size exceeds 5MB limit' },
-          { status: 400 }
-        );
-      }
-
-      if (!allowedFileTypes.includes(attachment.type)) {
-        return NextResponse.json(
-          { error: 'Invalid file type' },
-          { status: 400 }
-        );
-      }
-
-      const buffer = await attachment.arrayBuffer();
-      attachments.push({
-        filename: attachment.name,
-        content: Buffer.from(buffer),
-        contentType: attachment.type
-      });
-    }
-
     // Create transporter
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -175,8 +115,7 @@ export async function POST(req) {
       subject: `Portfolio Contact from ${name} [${trackingId}]`,
       text: `Reference ID: ${trackingId}\nName: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
       html: createEmailHTML(name, email, message, trackingId),
-      replyTo: email,
-      attachments
+      replyTo: email
     };
 
     // Auto-response email content
